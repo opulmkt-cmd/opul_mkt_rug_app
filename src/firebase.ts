@@ -1,94 +1,98 @@
-import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser, Auth } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, getDocFromServer, Firestore } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+import { initializeApp, FirebaseApp } from "firebase/app";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser,
+  Auth,
+} from "firebase/auth";
+import {
+  getFirestore,
+  doc,
+  getDocFromServer,
+  Firestore,
+} from "firebase/firestore";
 
 let app: FirebaseApp;
 export let auth: Auth;
 export let db: Firestore;
+
 export const googleProvider = new GoogleAuthProvider();
 
 export async function initFirebase() {
   if (app) return { auth, db };
 
   try {
-    // Try to fetch from server first for consistency
-    const response = await fetch('/api/config/firebase');
-    let config;
-    
-    if (response.ok) {
-      config = await response.json();
-    } else {
-      // Fallback to local import if server fails
-      config = firebaseConfig;
+    let config = null;
+
+    // ✅ 1. Try backend (BEST - consistent with server)
+    try {
+      const res = await fetch("/api/config/firebase");
+      if (res.ok) {
+        config = await res.json();
+      }
+    } catch (e) {
+      console.warn("Backend config fetch failed, falling back to env");
     }
 
+    // ✅ 2. Fallback to Vite ENV
     if (!config || !config.apiKey) {
-      // Final fallback to local import
-      config = firebaseConfig;
+      config = {
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId:
+          import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: import.meta.env.VITE_FIREBASE_APP_ID,
+      };
     }
 
+    // ❌ No config → fail clearly
     if (!config || !config.apiKey) {
-      throw new Error('Firebase configuration not found. Please ensure Firebase is set up.');
+      throw new Error("Firebase config missing (ENV or API)");
     }
 
+    // ✅ Init
     app = initializeApp(config);
     auth = getAuth(app);
-    db = getFirestore(app, config.firestoreDatabaseId || '(default)');
 
-    // Run connection test
+    // ✅ Firestore DB (supports optional multi-db)
+    db = getFirestore(app, config.firestoreDatabaseId || "(default)");
+
+    // ✅ Test connection
     testConnection();
 
     return { auth, db };
   } catch (error) {
-    console.error('Failed to initialize Firebase:', error);
-    // Last ditch effort with local config
-    try {
-      app = initializeApp(firebaseConfig);
-      auth = getAuth(app);
-      db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
-      return { auth, db };
-    } catch (e) {
-      throw error;
-    }
+    console.error("❌ Firebase init failed:", error);
+    throw error;
   }
 }
 
-// Operation types for error handling
+---
+
+# 🔥 ERROR HANDLING (UNCHANGED BUT CLEANED)
+
 export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
+  CREATE = "create",
+  UPDATE = "update",
+  DELETE = "delete",
+  LIST = "list",
+  GET = "get",
+  WRITE = "write",
 }
 
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId: string | undefined;
-    email: string | null | undefined;
-    emailVerified: boolean | undefined;
-    isAnonymous: boolean | undefined;
-    tenantId: string | null | undefined;
-    providerInfo: {
-      providerId: string;
-      displayName: string | null;
-      email: string | null;
-      photoUrl: string | null;
-    }[];
-  }
-}
+export function handleFirestoreError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null
+) {
+  if (!auth) throw error;
 
-/**
- * Standardized error handler for Firestore operations
- */
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  if (!auth) throw error; // Fallback if auth is not ready
-  const errInfo: FirestoreErrorInfo = {
+  const errInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
       userId: auth.currentUser?.uid,
@@ -96,34 +100,40 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
       emailVerified: auth.currentUser?.emailVerified,
       isAnonymous: auth.currentUser?.isAnonymous,
       tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData.map(provider => ({
-        providerId: provider.providerId,
-        displayName: provider.displayName,
-        email: provider.email,
-        photoUrl: provider.photoURL
-      })) || []
+      providerInfo:
+        auth.currentUser?.providerData.map((p) => ({
+          providerId: p.providerId,
+          displayName: p.displayName,
+          email: p.email,
+          photoUrl: p.photoURL,
+        })) || [],
     },
     operationType,
-    path
+    path,
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+
+  console.error("🔥 Firestore Error:", errInfo);
+
   throw new Error(JSON.stringify(errInfo));
 }
 
-/**
- * Test connection to Firestore
- */
+---
+
+# 🔍 CONNECTION TEST
+
 export async function testConnection() {
   if (!db) return;
+
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
+    await getDocFromServer(doc(db, "test", "connection"));
+  } catch (error: any) {
+    if (error.message?.includes("offline")) {
+      console.error("⚠️ Firebase appears offline");
     }
-    // Skip logging for other errors, as this is simply a connection test.
   }
 }
+
+---
 
 export { signInWithPopup, signOut, onAuthStateChanged };
 export type { FirebaseUser };
