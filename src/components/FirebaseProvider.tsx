@@ -45,6 +45,12 @@ const ADMIN_EMAILS: string[] = [
   'opulmkt@gmail.com'
 ];
 
+const DEMO_EMAILS: string[] = [
+  'demo@opulmkt.com',
+  'estaunton@icloud.com',
+  'aimanmaniyar789@gmail.com'
+];
+
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<FirebaseUser | null>(null);
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
@@ -76,16 +82,19 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
               if (!userDoc.exists()) {
                 // Check for guest credits to sync
                 const guestCreditsStr = localStorage.getItem('guest_credits');
-                const guestCredits = guestCreditsStr ? parseInt(guestCreditsStr) : 5;
+                const guestCredits = guestCreditsStr ? parseInt(guestCreditsStr) : 20;
                 
+                const isAdmin = ADMIN_EMAILS.includes(currentUser.email || '');
+                const isDemo = DEMO_EMAILS.includes(currentUser.email || '');
+
                 const initialProfile = {
                   uid: currentUser.uid,
                   email: currentUser.email,
                   displayName: currentUser.displayName,
                   photoURL: currentUser.photoURL,
-                  credits: ADMIN_EMAILS.includes(currentUser.email || '') ? 999 : (isNaN(guestCredits) ? 5 : Math.max(0, Math.min(guestCredits, 5))), 
-                  tier: ADMIN_EMAILS.includes(currentUser.email || '') ? 'pro' : 'free',
-                  role: ADMIN_EMAILS.includes(currentUser.email || '') ? 'admin' : 'user',
+                  credits: isAdmin ? 999 : (isDemo ? 20 : (isNaN(guestCredits) ? 20 : Math.max(0, Math.min(guestCredits, 20)))), 
+                  tier: isAdmin ? 'pro' : 'free',
+                  role: isAdmin ? 'admin' : 'user',
                   createdAt: serverTimestamp(),
                 };
                 await setDoc(userRef, initialProfile);
@@ -99,6 +108,15 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                   tier: 'pro',
                   lastLogin: serverTimestamp() 
                 }, { merge: true });
+              } else if (DEMO_EMAILS.includes(currentUser.email || '')) {
+                // Refresh demo credits on sign in if they are low
+                const currentData = userDoc.data();
+                if ((currentData?.credits || 0) < 20) {
+                  await setDoc(userRef, { 
+                    credits: 20,
+                    lastLogin: serverTimestamp() 
+                  }, { merge: true });
+                }
               }
 
               // Listen for profile changes
