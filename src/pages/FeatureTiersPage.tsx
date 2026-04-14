@@ -124,10 +124,16 @@ export const FeatureTiersPage: React.FC = () => {
                   </li>
                 ))}
               </ul>
-              <div className="pt-6 border-t border-black/5">
+              <div className="pt-6 border-t border-black/5 flex flex-col sm:flex-row items-center justify-between gap-6">
                 <p className="text-lg font-bold text-black">
                   Final quotes are shared after design validation
                 </p>
+                <button 
+                  onClick={() => navigate('/samples')}
+                  className="px-8 py-4 bg-[#EFBB76] text-black text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-[#DBA762] transition-all flex items-center justify-center gap-2"
+                >
+                  Order Sample <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>
