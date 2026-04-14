@@ -151,14 +151,14 @@ export const RugVisualizerPage: React.FC = () => {
         return;
       }
     } else {
-      // Guest logic: Use same 5 credit limit as free tier
-      const guestCredits = parseInt(storage.getSmall('guest_credits') || '5');
+      // Guest logic: Use same 20 credit limit as free tier
+      const guestCredits = parseInt(storage.getSmall('guest_credits') || '20');
       if (guestCredits < cost) {
         setShowAuthWall(true);
         return;
       }
       // If first generation as guest, we show the wall *while* it generates
-      if (guestCredits === 5 && !isRegeneration) {
+      if (guestCredits === 20 && !isRegeneration) {
         setShowAuthWall(true);
       }
     }
@@ -288,7 +288,7 @@ export const RugVisualizerPage: React.FC = () => {
             credits: increment(-cost)
           });
         } else {
-          const guestCredits = parseInt(storage.getSmall('guest_credits') || '5');
+          const guestCredits = parseInt(storage.getSmall('guest_credits') || '20');
           storage.setSmall('guest_credits', Math.max(0, guestCredits - cost).toString());
         }
       } else {
