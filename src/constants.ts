@@ -258,10 +258,10 @@ export const PRICING_TIERS = [
     id: 'free',
     name: 'Free',
     price: 0,
-    credits: 5,
+    credits: 20,
     description: 'Try the design experience',
     features: [
-      '5 design credits',
+      '20 design credits',
       '1 saved design',
       'Basic materials',
       'Standard resolution',
