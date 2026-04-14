@@ -15,6 +15,8 @@ import { FirebaseProvider, ErrorBoundary } from './components/FirebaseProvider';
 
 import { storage } from './lib/storage';
 
+import { SamplePage } from './pages/SamplePage';
+
 export default function App() {
   React.useEffect(() => {
     // Global storage cleanup and migration on startup
@@ -72,6 +74,7 @@ export default function App() {
               <Route path="/wishlist" element={<WishlistPage />} />
               <Route path="/credits" element={<CreditsPage />} />
               <Route path="/how-it-works" element={<HowItWorksPage />} />
+              <Route path="/samples" element={<SamplePage />} />
             </Routes>
           </Layout>
         </Router>
