@@ -26,38 +26,41 @@ export default async function handler(req, res) {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  if (event.type === "payment_intent.succeeded") {
-    const pi = event.data.object as any;
-    const { userId, type, value, tierId } = pi.metadata || {};
+ if (event.type === "payment_intent.succeeded") {
+  const pi = event.data.object;
+  const { userId, type, value, tierId } = pi.metadata;
 
-    if (!userId) return res.status(200).send("No userId");
+  const userRef = db.collection("users").doc(userId);
+  const userSnap = await userRef.get();
 
-    const userRef = db.collection("users").doc(userId);
-    const userDoc = await userRef.get();
+  if (!userSnap.exists) return;
 
-    if (!userDoc.exists) return res.status(200).send("User not found");
+  const user = userSnap.data();
 
-    const data = userDoc.data();
-    const updates: any = { updatedAt: new Date().toISOString() };
+  let updates: any = {
+    updatedAt: new Date().toISOString(),
+  };
 
-    if (type === "credits") {
-      updates.credits = (data?.credits || 0) + parseInt(value || "0");
-    }
-
-    if (type === "tier") {
-      updates.tier = tierId;
-      updates.credits = (data?.credits || 0) + parseInt(value || "0");
-    }
-
-    await userRef.update(updates);
-
-    await db.collection("orders").add({
-      userId,
-      type,
-      amount: pi.amount / 100,
-      createdAt: new Date().toISOString(),
-    });
+  
+  if (type === "credits") {
+    updates.credits = (user.credits || 0) + parseInt(value || "0");
   }
 
-  res.status(200).send("OK");
+  
+  if (type === "tier") {
+    updates.tier = tierId;
+    updates.credits = (user.credits || 0) + parseInt(value || "0");
+  }
+
+  await userRef.update(updates);
+
+  
+  await db.collection("orders").add({
+    userId,
+    type: type === "credits" ? "Credit Top-up" : "Plan Upgrade",
+    status: "Paid",
+    amount: pi.amount / 100,
+    stripePaymentIntentId: pi.id,
+    createdAt: new Date().toISOString(),
+  });
 }
