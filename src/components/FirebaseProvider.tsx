@@ -41,7 +41,8 @@ const ADMIN_EMAILS: string[] = [
   'adilabbas812@gmail.com',
   'aimanmaniyar20@gmail.com',
   'adilabbas@gmail.com',
-  'aimanmaniyar28@gmail.com'
+  'aimanmaniyar28@gmail.com',
+  'opulmkt@gmail.com'
 ];
 
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
