@@ -46,7 +46,7 @@ export const CheckoutPage: React.FC = () => {
   const isCredits = location.state?.type === 'credits';
   const depositAmount = location.state?.amount || 500;
   const creditAmount = location.state?.amount || 5;
-  const creditCount = location.state?.credits || 5;
+  const creditCount = location.state?.credits || 20;
   const targetTierId = location.state?.tier;
   const targetTier = PRICING_TIERS.find(t => t.id === targetTierId);
 
