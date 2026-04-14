@@ -15,7 +15,7 @@ import {
   Firestore,
 } from "firebase/firestore";
 
-// 🔥 Firebase config ONLY from VITE env
+// Firebase config from VITE env
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -36,32 +36,24 @@ export async function initFirebase() {
   if (app) return { auth, db };
 
   try {
-    // 🚨 Validate config
     if (!firebaseConfig.apiKey) {
       throw new Error("Missing Firebase ENV variables");
     }
 
-    // ✅ Initialize
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
-
-    // Default Firestore DB
     db = getFirestore(app);
 
-    // Optional connection test
     testConnection();
 
     return { auth, db };
   } catch (error) {
-    console.error("❌ Firebase init failed:", error);
+    console.error("Firebase init failed:", error);
     throw error;
   }
 }
 
----
-
-# 🔥 ERROR HANDLING (UNCHANGED)
-
+// Operation types for error handling
 export enum OperationType {
   CREATE = "create",
   UPDATE = "update",
@@ -71,6 +63,7 @@ export enum OperationType {
   WRITE = "write",
 }
 
+// Firestore error handler
 export function handleFirestoreError(
   error: unknown,
   operationType: OperationType,
@@ -98,15 +91,12 @@ export function handleFirestoreError(
     path,
   };
 
-  console.error("🔥 Firestore Error:", errInfo);
+  console.error("Firestore Error:", errInfo);
 
   throw new Error(JSON.stringify(errInfo));
 }
 
----
-
-# 🔍 CONNECTION TEST
-
+// Test Firestore connection
 export async function testConnection() {
   if (!db) return;
 
@@ -114,12 +104,10 @@ export async function testConnection() {
     await getDocFromServer(doc(db, "test", "connection"));
   } catch (error: any) {
     if (error.message?.includes("offline")) {
-      console.error("⚠️ Firebase appears offline");
+      console.error("Firebase appears offline");
     }
   }
 }
-
----
 
 export { signInWithPopup, signOut, onAuthStateChanged };
 export type { FirebaseUser };
