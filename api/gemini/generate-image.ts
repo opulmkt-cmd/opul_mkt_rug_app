@@ -1,4 +1,5 @@
 import { generateRugImage } from "../../lib/gemini";
+import { db } from "../../lib/firebaseAdmin";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -6,17 +7,50 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt } = req.body;
+    const { prompt, userId } = req.body;
 
-    if (!prompt) {
-      return res.status(400).json({ error: "Prompt is required" });
+    if (!userId) {
+      return res.status(400).json({ error: "UserId required" });
     }
 
+    const userRef = db.collection("users").doc(userId);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = userSnap.data();
+
+    // 🔥 ADMIN = UNLIMITED
+    if (user.role !== "admin") {
+      if (!user.credits || user.credits <= 0) {
+        return res.status(400).json({ error: "No credits left" });
+      }
+
+      // ✅ Deduct credit FIRST
+      await userRef.update({
+        credits: user.credits - 1,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    // 🎨 Generate image
     const image = await generateRugImage(prompt);
 
-    res.json({ image });
-  } catch (error: any) {
-    console.error("Generate Image Error:", error);
-    res.status(500).json({ error: error.message });
+    // ✅ Save design
+    await db.collection("designs").add({
+      userId,
+      name: "Generated Rug",
+      imageUrl: image,
+      prompt,
+      createdAt: new Date().toISOString(),
+    });
+
+    return res.json({ image });
+
+  } catch (err: any) {
+    console.error("Generation Error:", err);
+    return res.status(500).json({ error: err.message });
   }
 }
