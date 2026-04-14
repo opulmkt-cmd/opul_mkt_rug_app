@@ -1,8 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY!,
-});
+import { generateRugImage } from "../../lib/gemini";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -12,35 +8,15 @@ export default async function handler(req, res) {
   try {
     const { prompt } = req.body;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: {
-        parts: [
-          {
-            text: `A high-quality, professional rug design. Style: ${prompt}. The image should be top-down, no furniture, neutral floor.`,
-          },
-        ],
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "1:1",
-          imageSize: "1K",
-        },
-      },
-    });
-
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        const base64 = part.inlineData.data;
-        return res.json({
-          image: `data:image/png;base64,${base64}`,
-        });
-      }
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required" });
     }
 
-    throw new Error("No image generated");
-  } catch (err: any) {
-    console.error("Gemini Image Error:", err);
-    res.status(500).json({ error: err.message });
+    const image = await generateRugImage(prompt);
+
+    res.json({ image });
+  } catch (error: any) {
+    console.error("Generate Image Error:", error);
+    res.status(500).json({ error: error.message });
   }
 }
