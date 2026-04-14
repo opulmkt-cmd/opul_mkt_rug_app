@@ -219,10 +219,10 @@ User Email: ${user?.email || 'Guest'}
       className="max-w-6xl mx-auto px-6 py-12"
     >
       <button 
-        onClick={() => navigate('/pricing-review')}
+        onClick={() => navigate('/design-detail')}
         className="flex items-center gap-2 text-black/40 hover:text-[#EFBB76] transition-colors group mb-12"
       >
-        <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" /> Back to Pricing Review
+        <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" /> Back to Design Details
       </button>
 
       <header className="mb-16">
