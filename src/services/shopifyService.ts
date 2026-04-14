@@ -133,6 +133,7 @@ export const shopifyService = {
         throw new Error(result.error || 'Failed to create custom product');
       }
       const variantId = result.variantId;
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // 2. Create a checkout using the new variant
       const checkoutUrl = await this.createCheckout({
