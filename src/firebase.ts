@@ -15,6 +15,17 @@ import {
   Firestore,
 } from "firebase/firestore";
 
+// 🔥 Firebase config ONLY from VITE env
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId:
+    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+};
+
 let app: FirebaseApp;
 export let auth: Auth;
 export let db: Firestore;
@@ -25,44 +36,19 @@ export async function initFirebase() {
   if (app) return { auth, db };
 
   try {
-    let config = null;
-
-    // ✅ 1. Try backend (BEST - consistent with server)
-    try {
-      const res = await fetch("/api/config/firebase");
-      if (res.ok) {
-        config = await res.json();
-      }
-    } catch (e) {
-      console.warn("Backend config fetch failed, falling back to env");
+    // 🚨 Validate config
+    if (!firebaseConfig.apiKey) {
+      throw new Error("Missing Firebase ENV variables");
     }
 
-    // ✅ 2. Fallback to Vite ENV
-    if (!config || !config.apiKey) {
-      config = {
-        apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-        messagingSenderId:
-          import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-        appId: import.meta.env.VITE_FIREBASE_APP_ID,
-      };
-    }
-
-    // ❌ No config → fail clearly
-    if (!config || !config.apiKey) {
-      throw new Error("Firebase config missing (ENV or API)");
-    }
-
-    // ✅ Init
-    app = initializeApp(config);
+    // ✅ Initialize
+    app = initializeApp(firebaseConfig);
     auth = getAuth(app);
 
-    // ✅ Firestore DB (supports optional multi-db)
-    db = getFirestore(app, config.firestoreDatabaseId || "(default)");
+    // Default Firestore DB
+    db = getFirestore(app);
 
-    // ✅ Test connection
+    // Optional connection test
     testConnection();
 
     return { auth, db };
@@ -74,7 +60,7 @@ export async function initFirebase() {
 
 ---
 
-# 🔥 ERROR HANDLING (UNCHANGED BUT CLEANED)
+# 🔥 ERROR HANDLING (UNCHANGED)
 
 export enum OperationType {
   CREATE = "create",
