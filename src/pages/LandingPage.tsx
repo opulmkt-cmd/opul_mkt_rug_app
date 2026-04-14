@@ -42,7 +42,7 @@ export const LandingPage: React.FC = () => {
     }
     // Initialize guest credits if not set
     if (!storage.getSmall('guest_credits')) {
-      storage.setSmall('guest_credits', '5');
+      storage.setSmall('guest_credits', '20');
     }
     navigate('/design');
   };
