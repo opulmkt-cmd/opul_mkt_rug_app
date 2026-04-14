@@ -22,8 +22,19 @@ export default async function handler(req, res) {
 
     const user = userSnap.data();
 
-    // 🔥 ADMIN = UNLIMITED
-    if (user.role !== "admin") {
+    // ✅ Gmail-based admin list (same as Firestore rules)
+    const adminEmails = [
+      "aimanaimlengineer@gmail.com",
+      "adilabbas812@gmail.com",
+      "aimanmaniyar20@gmail.com",
+      "adilabbas@gmail.com",
+      "aimanmaniyar28@gmail.com"
+    ];
+
+    const isAdmin = adminEmails.includes(user.email);
+
+    // 🔥 CREDIT LOGIC
+    if (!isAdmin) {
       if (!user.credits || user.credits <= 0) {
         return res.status(400).json({ error: "No credits left" });
       }
