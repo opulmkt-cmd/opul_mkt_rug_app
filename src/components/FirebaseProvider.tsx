@@ -89,7 +89,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                   email: currentUser.email,
                   displayName: currentUser.displayName,
                   photoURL: currentUser.photoURL,
-                  credits: isAdmin ? 999 : (isDemo ? 20 : (isNaN(guestCredits) ? 20 : Math.max(0, Math.min(guestCredits, 20)))), 
+                  credits: isAdmin ? 999 : (isDemo ? 20 : 5),
                   tier: isAdmin ? 'pro' : 'free',
                   role: isAdmin ? 'admin' : 'user',
                   createdAt: serverTimestamp(),
