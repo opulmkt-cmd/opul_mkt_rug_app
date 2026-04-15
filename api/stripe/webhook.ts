@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { buffer } from "micro";
 import { db } from "../../lib/firebaseAdmin.js";
 
 export const config = {
@@ -15,8 +16,7 @@ export default async function handler(req, res) {
   try {
     const sig = req.headers["stripe-signature"];
 
-    const buf = await req.arrayBuffer();
-    const rawBody = Buffer.from(buf);
+    const rawBody = await buffer(req); // ✅ FIXED
 
     event = stripe.webhooks.constructEvent(
       rawBody,
