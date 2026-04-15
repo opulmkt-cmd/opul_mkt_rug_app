@@ -1,5 +1,5 @@
 import { generateRugImage } from "../../lib/gemini";
-import { db } from "../../lib/firebaseAdmin";
+import { db } from "../../src/lib/firebaseAdmin";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
