@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { db } from "../../lib/firebaseAdmin";
+import { db } from "../../lib/firebaseAdmin.js";
 
 export const config = {
   api: {
