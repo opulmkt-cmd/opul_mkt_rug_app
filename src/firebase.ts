@@ -126,4 +126,4 @@ export async function testConnection() {
 }
 
 export { signInWithPopup, signOut, onAuthStateChanged };
-export type { FirebaseUser }; 
+export type { FirebaseUser };
