@@ -27,10 +27,9 @@ export async function initFirebase() {
   if (app) return { auth, db };
 
   try {
-    // ✅ Initialize Firebase (NO custom DB)
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
-    db = getFirestore(app); // ✅ IMPORTANT FIX
+    db = getFirestore(app);
 
     console.log("🔥 Firebase initialized:", firebaseConfig.projectId);
 
@@ -41,10 +40,7 @@ export async function initFirebase() {
   }
 }
 
----
-
-### 🔥 ADD BACK (Fixes your build error)
-
+// ✅ Required for your app
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
@@ -54,6 +50,7 @@ export enum OperationType {
   WRITE = 'write',
 }
 
+// ✅ Required for your app
 export function handleFirestoreError(
   error: unknown,
   operationType: OperationType,
@@ -72,9 +69,7 @@ export function handleFirestoreError(
   throw new Error(errInfo.error);
 }
 
----
-
-// Optional connection test (safe)
+// Optional debug
 export async function testConnection() {
   if (!db) return;
 
