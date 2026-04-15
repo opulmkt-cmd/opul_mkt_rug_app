@@ -190,11 +190,13 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
-        (request.resource.data.role == 'user' || isAdmin());
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
-        (request.resource.data.role == resource.data.role || isAdmin());
-    }
+  allow read: if request.auth != null && request.auth.uid == userId;
+
+  allow create: if request.auth != null && request.auth.uid == userId;
+
+  allow update: if request.auth != null && request.auth.uid == userId;
+
+  allow delete: if false;
+   }
   }
 }
