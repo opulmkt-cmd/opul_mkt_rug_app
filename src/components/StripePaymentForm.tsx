@@ -35,13 +35,13 @@ export const StripePaymentForm: React.FC<StripePaymentFormProps> = ({ amount, on
     });
 
     if (error) {
-      onError(error.message || 'An unexpected error occurred.');
-      setIsProcessing(false);
-    } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-      onSuccess();
-    }
-  };
-
+  onError(error.message || 'An unexpected error occurred.');
+  setIsProcessing(false);
+} else if (paymentIntent && paymentIntent.status === 'succeeded') {
+  setTimeout(() => {
+    onSuccess();
+  }, 2500);
+}
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <PaymentElement className="mb-6" />
