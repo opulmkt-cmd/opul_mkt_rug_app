@@ -34,7 +34,7 @@ export async function initFirebase() {
 
     app = initializeApp(config);
     auth = getAuth(app);
-    db = getFirestore(app, config.firestoreDatabaseId || '(default)');
+    db = getFirestore(app);
 
     // Run connection test
     testConnection();
