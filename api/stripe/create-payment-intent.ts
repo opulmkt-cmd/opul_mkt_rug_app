@@ -8,27 +8,23 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { amount, currency, userId, type, value, tierId } = req.body;
+    const { amount, metadata } = req.body;
 
-    // 🔒 Validate required fields
-    if (!amount || !userId || !type) {
+    if (!amount || !metadata?.userId || !metadata?.type) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    console.log("🔥 Creating payment for user:", userId);
+    console.log("🔥 Creating payment for:", metadata);
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100),
-      currency: currency || "usd",
-
-      // ✅ SAFE metadata (controlled structure)
+      currency: "usd",
       metadata: {
-        userId: String(userId),
-        type: String(type),
-        value: value ? String(value) : "",
-        tierId: tierId ? String(tierId) : "",
+        userId: String(metadata.userId),
+        type: String(metadata.type),
+        value: metadata.value ? String(metadata.value) : "",
+        tierId: metadata.tierId ? String(metadata.tierId) : "",
       },
-
       automatic_payment_methods: { enabled: true },
     });
 
