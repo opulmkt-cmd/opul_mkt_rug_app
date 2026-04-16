@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 import { buffer } from "micro";
-import { db } from "../../lib/firebaseAdmin.js";
+import { db } from "../../lib/firebaseAdmin"
 
 export const config = {
   api: {
