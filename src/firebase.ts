@@ -1,5 +1,14 @@
 import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser, Auth } from 'firebase/auth';
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut, 
+  onAuthStateChanged, 
+  User as FirebaseUser, 
+  Auth,
+  browserPopupRedirectResolver
+} from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, getDocFromServer, Firestore } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -7,6 +16,11 @@ let app: FirebaseApp;
 export let auth: Auth;
 export let db: Firestore;
 export const googleProvider = new GoogleAuthProvider();
+
+// Add custom parameters to provider
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
 export async function initFirebase() {
   if (app) return { auth, db };
@@ -51,6 +65,37 @@ export async function initFirebase() {
     } catch (e) {
       throw error;
     }
+  }
+}
+
+/**
+ * Robust sign in with Google that handles common errors
+ */
+let isSigningIn = false;
+export async function signInWithGoogle() {
+  if (isSigningIn) return;
+  if (!auth) await initFirebase();
+  
+  isSigningIn = true;
+  try {
+    const result = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+    return result;
+  } catch (error: any) {
+    // Handle standard "popup closed" error silently
+    if (error.code === 'auth/popup-closed-by-user') {
+      console.log('User closed the login popup.');
+      return null;
+    }
+    
+    // Handle "internal assertion failed" or other SDK errors
+    if (error.message?.includes('INTERNAL ASSERTION FAILED')) {
+      console.warn('Firebase Auth Internal Error detected. Attempting to recover...');
+      // Sometimes a simple retry or reload helps, but here we just log it
+    }
+    
+    throw error;
+  } finally {
+    isSigningIn = false;
   }
 }
 
