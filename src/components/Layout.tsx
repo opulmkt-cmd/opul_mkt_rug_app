@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Sparkles, Folder as FolderIcon, User, LogOut, LogIn, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFirebase } from './FirebaseProvider';
-import { auth, googleProvider, signInWithPopup, signOut } from '../firebase';
+import { auth, signInWithGoogle, signOut } from '../firebase';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,22 +29,38 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const nextPage = currentIndex < PAGE_SEQUENCE.length - 1 ? PAGE_SEQUENCE[currentIndex + 1] : null;
   const hideNavButtons = location.pathname === '/visualizer';
 
-  const navItems = user ? [
-    { name: 'Home', path: '/' },
-    { name: 'Visualize', path: '/visualizer' },
-    { name: 'How it works', path: '/how-it-works' },
-    { name: 'Rug Pricing', path: '/design-detail' },
-    { name: 'Dashboard', path: '/dashboard' },
-  ] : [
-    { name: 'Home', path: '/' },
-    { name: 'Visualize', path: '/visualizer' },
-    { name: 'How it works', path: '/how-it-works' },
-    { name: 'Credit Pricing', path: '/tiers' },
-  ];
+  const getNavItems = () => {
+    if (!user) {
+      return [
+        { name: 'Home', path: '/' },
+        { name: 'How it works', path: '/how-it-works' },
+        { name: 'Credit Pricing', path: '/tiers' },
+      ];
+    }
+
+    const items = [
+      { name: 'Home', path: '/' },
+      { name: 'Dashboard', path: '/dashboard' },
+    ];
+
+    // Add Visualize if in the design/visualize flow
+    if (['/visualizer', '/design', '/design-detail'].includes(location.pathname)) {
+      items.push({ name: 'Visualize', path: '/visualizer' });
+    }
+
+    // Add Rug Pricing if on the pricing page
+    if (location.pathname === '/design-detail') {
+      items.push({ name: 'Rug Pricing', path: '/design-detail' });
+    }
+
+    return items;
+  };
+
+  const navItems = getNavItems();
 
   const handleLogin = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      await signInWithGoogle();
     } catch (error) {
       console.error("Login failed:", error);
     }
@@ -139,31 +155,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <main className="pt-20 flex-grow pb-24">
         {children}
       </main>
-
-      {/* Navigation Buttons */}
-      {!hideNavButtons && (
-        <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none z-30">
-          <div className="max-w-7xl mx-auto flex justify-between pointer-events-auto">
-            {prevPage ? (
-              <button 
-                onClick={() => navigate(prevPage)}
-                className="btn-secondary px-6 py-3 text-xs"
-              >
-                <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Back
-              </button>
-            ) : <div />}
-
-            {nextPage ? (
-              <button 
-                onClick={() => navigate(nextPage)}
-                className="btn-primary px-6 py-3 text-xs"
-              >
-                Next <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
-            ) : <div />}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
