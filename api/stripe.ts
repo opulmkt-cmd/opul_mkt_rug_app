@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 import { buffer } from "micro";
-import { db } from "../lib/firebaseAdmin";
+import { db } from "../lib/firebaseAdmin.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
