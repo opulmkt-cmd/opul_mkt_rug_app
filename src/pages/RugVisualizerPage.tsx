@@ -26,7 +26,7 @@ import { RugConfig, SavedDesign } from '../types';
 import { CONSTRUCTIONS, PILE_TYPES, PILE_HEIGHTS, SURFACE_FINISHES, PRICING_MATRIX, API_COSTS, PRICING_TIERS, MATERIAL_TYPES } from '../constants';
 import { calculateEstimate } from '../lib/pricing';
 import { useFirebase } from '../components/FirebaseProvider';
-import { db, handleFirestoreError, OperationType, signInWithPopup, googleProvider, auth } from '../firebase';
+import { db, handleFirestoreError, OperationType, signInWithGoogle, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
 
 import { storage } from '../lib/storage';
@@ -342,11 +342,13 @@ export const RugVisualizerPage: React.FC = () => {
 
   const handleGoogleSignIn = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
-      setShowAuthWall(false);
-      if (config && !isGenerating) {
-        // After sign in, trigger the generation that was blocked
-        generateImage(config);
+      const result = await signInWithGoogle();
+      if (result) {
+        setShowAuthWall(false);
+        if (config && !isGenerating) {
+          // After sign in, trigger the generation that was blocked
+          generateImage(config);
+        }
       }
     } catch (error) {
       console.error("Sign in error:", error);
