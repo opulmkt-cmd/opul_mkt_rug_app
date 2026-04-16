@@ -37,13 +37,16 @@ export function useFirebase() {
 }
 
 const ADMIN_EMAILS: string[] = [
+  'aimanaimlengineer@gmail.com',
   'adilabbas812@gmail.com',
   'aimanmaniyar20@gmail.com',
+  'adilabbas@gmail.com',
+  'aimanmaniyar28@gmail.com',
   'opulmkt@gmail.com'
 ];
 
 const DEMO_EMAILS: string[] = [
-  'opulmkt@gmail.com',
+  'demo@opulmkt.com',
   'estaunton@icloud.com',
   'aimanmaniyar789@gmail.com'
 ];
@@ -89,7 +92,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                   email: currentUser.email,
                   displayName: currentUser.displayName,
                   photoURL: currentUser.photoURL,
-                  credits: isAdmin ? 999 : (isDemo ? 20 : 5),
+                  credits: isAdmin ? 999 : (isDemo ? 20 : (isNaN(guestCredits) ? 5 : Math.max(0, Math.min(guestCredits, 5)))), 
                   tier: isAdmin ? 'pro' : 'free',
                   role: isAdmin ? 'admin' : 'user',
                   createdAt: serverTimestamp(),
