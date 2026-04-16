@@ -1,51 +1,84 @@
-import { adminDb } from "../../lib/firebaseAdmin"
+import { db } from "../lib/firebaseAdmin";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Use POST method" });
-  }
-
-  const { code, credits, maxUses, expiryDate, adminSecret } = req.body;
-
-  // 🔒 Basic admin protection (IMPORTANT)
-  if (adminSecret !== process.env.ADMIN_SECRET) {
-    return res.status(403).json({ error: "Unauthorized" });
-  }
-
-  if (!code || !credits) {
-    return res.status(400).json({ error: "code & credits are required" });
-  }
+  const { action } = req.query;
 
   try {
-    if (!adminDb) {
-      return res.status(500).json({ error: "Database not initialized" });
+    // =====================================================
+    // 🔐 ADMIN AUTH CHECK
+    // =====================================================
+    const { adminSecret } = req.body;
+
+    if (adminSecret !== process.env.ADMIN_SECRET) {
+      return res.status(403).json({ error: "Unauthorized" });
     }
 
-    const db = adminDb;
+    // =====================================================
+    // 🎟️ CREATE PROMO CODE
+    // =====================================================
+    if (action === "create-promo") {
+      if (req.method !== "POST") {
+        return res.status(405).json({ error: "Use POST" });
+      }
 
-    const promoRef = db.collection("promo_codes").doc(code.toUpperCase());
-    const existing = await promoRef.get();
+      const { code, credits, maxUses, expiryDate } = req.body;
 
-    if (existing.exists) {
-      return res.status(400).json({ error: "Promo code already exists" });
+      if (!code || !credits) {
+        return res.status(400).json({ error: "code & credits required" });
+      }
+
+      const promoRef = db.collection("promo_codes").doc(code.toUpperCase());
+      const existing = await promoRef.get();
+
+      if (existing.exists) {
+        return res.status(400).json({ error: "Promo already exists" });
+      }
+
+      await promoRef.set({
+        code: code.toUpperCase(),
+        credits: Number(credits),
+        maxUses: maxUses || 100,
+        usedCount: 0,
+        isActive: true,
+        expiryDate: expiryDate || null,
+        createdAt: new Date().toISOString(),
+      });
+
+      return res.json({ success: true });
     }
 
-    await promoRef.set({
-      code: code.toUpperCase(),
-      credits: Number(credits),
-      maxUses: maxUses || 100, // default limit
-      usedCount: 0,
-      isActive: true,
-      expiryDate: expiryDate || null,
-      createdAt: new Date().toISOString()
-    });
+    // =====================================================
+    // 💰 ADJUST USER CREDITS
+    // =====================================================
+    if (action === "adjust-credits") {
+      const { userId, amount } = req.body;
 
-    return res.json({
-      success: true,
-      message: "Promo code created successfully"
-    });
+      if (!userId || !amount) {
+        return res.status(400).json({ error: "userId & amount required" });
+      }
 
-  } catch (err) {
+      const userRef = db.collection("users").doc(userId);
+      const userDoc = await userRef.get();
+
+      if (!userDoc.exists) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const user = userDoc.data();
+
+      await userRef.update({
+        credits: (user.credits || 0) + Number(amount),
+        updatedAt: new Date().toISOString(),
+      });
+
+      return res.json({ success: true });
+    }
+
+    // =====================================================
+    return res.status(404).json({ error: "Invalid action" });
+
+  } catch (err: any) {
+    console.error("❌ Admin API error:", err);
     return res.status(500).json({ error: err.message });
   }
 }
