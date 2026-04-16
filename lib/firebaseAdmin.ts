@@ -77,3 +77,4 @@ if (adminApp) {
 
 export const adminAuth = adminApp ? adminApp.auth() : null;
 export { adminApp, databaseId };
+export const db = adminDb;
