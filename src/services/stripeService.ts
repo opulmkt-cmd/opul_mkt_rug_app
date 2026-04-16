@@ -1,6 +1,6 @@
 export const stripeService = {
   async createPaymentIntent(amount: number, metadata: any) {
-    const url = `${window.location.origin}/api/stripe/create-payment-intent`;
+    const url = `${window.location.origin}/api/stripe?action=create-payment-intent`;
 
     const response = await fetch(url, {
       method: "POST",
@@ -27,7 +27,7 @@ export const stripeService = {
   },
 
   async redeemPromoCode(promoCode: string, userId: string) {
-    const url = `${window.location.origin}/api/stripe/redeem-promo`;
+    const url = `${window.location.origin}/api/stripe?action=redeem-promo`;
 
     const response = await fetch(url, {
       method: "POST",
