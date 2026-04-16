@@ -34,6 +34,10 @@ export const CheckoutPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [promoCode, setPromoCode] = useState('');
+  const [isRedeeming, setIsRedeeming] = useState(false);
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [promoMessage, setPromoMessage] = useState<string | null>(null);
   
   // Payment Form State
   const [cardName, setCardName] = useState('');
@@ -231,6 +235,25 @@ export const CheckoutPage: React.FC = () => {
     }
   };
 
+  const handleRedeemPromo = async () => {
+    if (!user || !promoCode) return;
+    
+    setIsRedeeming(true);
+    setError(null);
+    setPromoMessage(null);
+    
+    try {
+      const result = await stripeService.redeemPromoCode(promoCode, user.uid);
+      setPromoApplied(true);
+      setPromoMessage(result.message);
+      setSubmitted(true); // Since it's free, we can just mark as submitted
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsRedeeming(false);
+    }
+  };
+
   if (submitted) {
     return (
       <div className="max-w-7xl mx-auto px-6 py-24 flex flex-col items-center justify-center text-center space-y-8">
@@ -306,11 +329,41 @@ export const CheckoutPage: React.FC = () => {
                 <span className="text-black/40 uppercase font-bold tracking-widest">Type</span>
                 <span className="font-bold">{targetTier ? 'Plan Upgrade' : (isCredits ? 'Credit Top-up' : (isDeposit ? 'Deposit Payment' : 'Full Payment'))}</span>
               </div>
+              {promoApplied && (
+                <div className="flex justify-between text-xs text-green-600">
+                  <span className="uppercase font-bold tracking-widest">Promo Discount</span>
+                  <span className="font-bold">-${targetTier ? targetTier.price : (isCredits ? creditAmount : (isDeposit ? depositAmount : 50))}</span>
+                </div>
+              )}
               <div className="flex justify-between text-xl font-serif font-bold pt-4 border-t border-black/10">
                 <span>Total Due</span>
-                <span className="text-[#EFBB76]">${targetTier ? targetTier.price : (isCredits ? creditAmount : (isDeposit ? depositAmount.toLocaleString() : 'TBD'))}</span>
+                <span className="text-[#EFBB76]">${promoApplied ? '0.00' : (targetTier ? targetTier.price : (isCredits ? creditAmount : (isDeposit ? depositAmount.toLocaleString() : 'TBD')))}</span>
               </div>
             </div>
+
+            {/* Promo Code Input */}
+            {!promoApplied && (isCredits || targetTier) && (
+              <div className="mt-8 pt-6 border-t border-black/10">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-black/40 mb-3">Have a promo code?</p>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                    placeholder="ENTER CODE"
+                    className="flex-1 bg-white border border-black/10 rounded-xl px-4 py-2 text-xs font-bold focus:outline-none focus:border-[#EFBB76] transition-colors"
+                  />
+                  <button 
+                    onClick={handleRedeemPromo}
+                    disabled={!promoCode || isRedeeming}
+                    className="px-4 py-2 bg-black text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-black/80 transition-all disabled:opacity-50"
+                  >
+                    {isRedeeming ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Apply'}
+                  </button>
+                </div>
+                {promoMessage && <p className="text-[10px] text-green-600 font-bold mt-2">{promoMessage}</p>}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-4 p-6 bg-[#EFBB76]/5 rounded-2xl border border-[#EFBB76]/20">
