@@ -1,31 +1,46 @@
-import { adminDb } from "../../lib/firebaseAdmin"
+import { db } from "../lib/firebaseAdmin";
 
 export default async function handler(req, res) {
-  const { userId } = req.query;
-
-  if (!userId) {
-    return res.status(400).json({ error: "userId required" });
-  }
+  const { action, userId } = req.query;
 
   try {
-    if (!adminDb) {
-      return res.status(500).json({ error: "DB not initialized" });
+    if (!userId) {
+      return res.status(400).json({ error: "userId required" });
     }
 
-    const userDoc = await adminDb
-      .collection("users")
-      .doc(userId)
-      .get();
+    // =====================================================
+    // 💰 GET USER CREDITS
+    // =====================================================
+    if (action === "credits") {
+      const userDoc = await db.collection("users").doc(userId).get();
 
-    if (!userDoc.exists) {
-      return res.status(404).json({ error: "User not found" });
+      if (!userDoc.exists) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      return res.json({
+        credits: userDoc.data()?.credits || 0,
+      });
     }
 
-    return res.json({
-      credits: userDoc.data()?.credits || 0,
-    });
+    // =====================================================
+    // 👤 GET FULL USER PROFILE (optional)
+    // =====================================================
+    if (action === "profile") {
+      const userDoc = await db.collection("users").doc(userId).get();
 
-  } catch (err) {
+      if (!userDoc.exists) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      return res.json(userDoc.data());
+    }
+
+    // =====================================================
+    return res.status(404).json({ error: "Invalid action" });
+
+  } catch (err: any) {
+    console.error("❌ User API error:", err);
     return res.status(500).json({ error: err.message });
   }
 }
