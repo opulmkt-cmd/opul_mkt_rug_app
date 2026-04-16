@@ -1,21 +1,15 @@
 export const stripeService = {
   async createPaymentIntent(amount: number, metadata: any) {
-    console.log(`[StripeService] Creating payment intent: ${amount}`, metadata);
+    const url = `${window.location.origin}/api/stripe/create-payment-intent`;
 
-    const response = await fetch("/api/stripe/create-payment-intent", {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        amount,
-        metadata,
-      }),
+      body: JSON.stringify({ amount, metadata }),
     });
 
-    console.log(`[StripeService] Response status: ${response.status}`);
-
-    // 🔥 SAFE JSON HANDLING (fixes your crash)
     const text = await response.text();
     let data: any = {};
 
@@ -26,10 +20,36 @@ export const stripeService = {
     }
 
     if (!response.ok) {
-      console.error("[StripeService] Error response:", data);
       throw new Error(data.error || "Failed to create payment intent");
     }
 
     return data;
   },
+
+  async redeemPromoCode(promoCode: string, userId: string) {
+    const url = `${window.location.origin}/api/stripe/redeem-promo`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ promoCode, userId }),
+    });
+
+    const text = await response.text();
+    let data: any = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (e) {
+      console.error("JSON parse error:", text);
+    }
+
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to redeem promo code");
+    }
+
+    return data;
+  }
 };
