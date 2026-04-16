@@ -45,7 +45,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { SavedDesign } from '../types';
 import { useFirebase } from '../components/FirebaseProvider';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, getDocs, orderBy, limit, getDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, getDoc, doc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { storage } from '../lib/storage';
 import { shopifyService } from '../services/shopifyService';
 import { PRICING_TIERS } from '../constants';
@@ -101,80 +101,84 @@ export const DashboardPage: React.FC = () => {
   }, [location]);
 
   useEffect(() => {
-    const fetchData = async () => {
+    let unsubscribes: (() => void)[] = [];
+
+    const setupListeners = async () => {
       if (!isAuthReady) return;
       
       if (user) {
+        setLoading(true);
         try {
           if (isAdmin) {
-            // Fetch all data for admin
-            const [usersSnap, promptsSnap, designsSnap, ordersSnap, samplesSnap, logsSnap] = await Promise.all([
-              getDocs(collection(db, 'users')),
-              getDocs(query(collection(db, 'prompts'), orderBy('createdAt', 'desc'), limit(50))),
-              getDocs(query(collection(db, 'designs'), orderBy('createdAt', 'desc'), limit(50))),
-              getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(50))),
-              getDocs(query(collection(db, 'sample_requests'), orderBy('createdAt', 'desc'), limit(50))),
-              getDocs(query(collection(db, 'webhook_logs'), orderBy('receivedAt', 'desc'), limit(20)))
-            ]);
+            // Admin listeners
+            const usersUnsub = onSnapshot(collection(db, 'users'), (snapshot) => {
+              const usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              setAllUsers(usersData);
+              setAdminStats(prev => ({ ...prev, totalUsers: usersData.length }));
+            }, (err) => handleFirestoreError(err, OperationType.GET, 'users'));
 
-            setWebhookLogs(logsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            const promptsUnsub = onSnapshot(query(collection(db, 'prompts'), orderBy('createdAt', 'desc'), limit(50)), (snapshot) => {
+              const promptsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              setAllPrompts(promptsData);
+              setAdminStats(prev => ({ ...prev, activePrompts: promptsData.length }));
+            }, (err) => handleFirestoreError(err, OperationType.GET, 'prompts'));
 
-            const usersData = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            const promptsData = promptsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            const designsData = designsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            const ordersData = ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            const samplesData = samplesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const designsUnsub = onSnapshot(query(collection(db, 'designs'), orderBy('createdAt', 'desc'), limit(50)), (snapshot) => {
+              const designsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              setAllDesigns(designsData);
+              setAdminStats(prev => ({ ...prev, savedDesigns: designsData.length }));
+            }, (err) => handleFirestoreError(err, OperationType.GET, 'designs'));
 
-            setAllUsers(usersData);
-            setAllPrompts(promptsData);
-            setAllDesigns(designsData);
-            setAllOrders(ordersData);
-            setAllSamples(samplesData);
+            const ordersUnsub = onSnapshot(query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(50)), (snapshot) => {
+              const ordersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              setAllOrders(ordersData);
+              setAdminStats(prev => ({ 
+                ...prev, 
+                totalRevenue: ordersData.reduce((acc, curr: any) => acc + (curr.amount || 0), 0) 
+              }));
+            }, (err) => handleFirestoreError(err, OperationType.GET, 'orders'));
 
-            setAdminStats({
-              totalUsers: usersData.length,
-              totalRevenue: ordersData.reduce((acc, curr: any) => acc + (curr.amount || 0), 0),
-              activePrompts: promptsData.length,
-              savedDesigns: designsData.length
-            });
+            const samplesUnsub = onSnapshot(query(collection(db, 'sample_requests'), orderBy('createdAt', 'desc'), limit(50)), (snapshot) => {
+              setAllSamples(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            }, (err) => handleFirestoreError(err, OperationType.GET, 'sample_requests'));
+
+            const logsUnsub = onSnapshot(query(collection(db, 'webhook_logs'), orderBy('receivedAt', 'desc'), limit(20)), (snapshot) => {
+              setWebhookLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            }, (err) => handleFirestoreError(err, OperationType.GET, 'webhook_logs'));
+
+            unsubscribes.push(usersUnsub, promptsUnsub, designsUnsub, ordersUnsub, samplesUnsub, logsUnsub);
           }
 
-          // Fetch user-specific designs
-          const designsQ = query(
-            collection(db, 'designs'),
-            where('userId', '==', user.uid),
-            orderBy('createdAt', 'desc'),
-            limit(10)
+          // User-specific listeners
+          const userDesignsUnsub = onSnapshot(
+            query(collection(db, 'designs'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'), limit(10)),
+            (snapshot) => {
+              setDesigns(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            },
+            (err) => handleFirestoreError(err, OperationType.GET, 'designs')
           );
-          getDocs(designsQ).then(snapshot => {
-            setDesigns(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-          }).catch(err => handleFirestoreError(err, OperationType.GET, 'designs'));
 
-          // Fetch user-specific prompts
-          const promptsQ = query(
-            collection(db, 'prompts'),
-            where('userId', '==', user.uid),
-            orderBy('createdAt', 'desc'),
-            limit(5)
+          const userPromptsUnsub = onSnapshot(
+            query(collection(db, 'prompts'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'), limit(5)),
+            (snapshot) => {
+              setPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            },
+            (err) => handleFirestoreError(err, OperationType.GET, 'prompts')
           );
-          getDocs(promptsQ).then(snapshot => {
-            setPrompts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-          }).catch(err => handleFirestoreError(err, OperationType.GET, 'prompts'));
 
-          // Fetch user-specific orders
-          const ordersQ = query(
-            collection(db, 'orders'),
-            where('userId', '==', user.uid),
-            orderBy('createdAt', 'desc'),
-            limit(5)
+          const userOrdersUnsub = onSnapshot(
+            query(collection(db, 'orders'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'), limit(5)),
+            (snapshot) => {
+              setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            },
+            (err) => handleFirestoreError(err, OperationType.GET, 'orders')
           );
-          getDocs(ordersQ).then(snapshot => {
-            setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-          }).catch(err => handleFirestoreError(err, OperationType.GET, 'orders'));
+
+          unsubscribes.push(userDesignsUnsub, userPromptsUnsub, userOrdersUnsub);
+          setLoading(false);
 
         } catch (error) {
           handleFirestoreError(error, OperationType.GET, 'dashboard');
-        } finally {
           setLoading(false);
         }
       } else {
@@ -185,7 +189,11 @@ export const DashboardPage: React.FC = () => {
       }
     };
 
-    fetchData();
+    setupListeners();
+
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+    };
   }, [user, isAuthReady, isAdmin]);
 
   const dashboardNav = [
@@ -215,6 +223,28 @@ export const DashboardPage: React.FC = () => {
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
   const [isRefreshingLogs, setIsRefreshingLogs] = useState(false);
+
+  const [shopifyStatus, setShopifyStatus] = useState<any>(null);
+  const [isCheckingShopify, setIsCheckingShopify] = useState(false);
+
+  const checkShopifyStatus = async () => {
+    setIsCheckingShopify(true);
+    try {
+      const res = await fetch('/api/shopify/diagnostics');
+      const data = await res.json();
+      setShopifyStatus(data);
+    } catch (err) {
+      console.error("Failed to check Shopify status:", err);
+    } finally {
+      setIsCheckingShopify(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdmin) {
+      checkShopifyStatus();
+    }
+  }, [isAdmin]);
 
   const refreshWebhookLogs = async () => {
     if (!isAdmin) return;
@@ -930,6 +960,54 @@ export const DashboardPage: React.FC = () => {
                       >
                         Simulate 20 Credit Upgrade
                       </button>
+                    </div>
+                  </div>
+
+                  {/* System Health / Webhook Status */}
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-[#EFBB76]">Shopify Configuration</h3>
+                      <button 
+                        onClick={checkShopifyStatus}
+                        disabled={isCheckingShopify}
+                        className="p-2 hover:bg-white/10 rounded-full transition-colors disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isCheckingShopify ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                    <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 space-y-4">
+                      {shopifyStatus ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Domain</span>
+                            <span className={`text-[10px] font-bold ${shopifyStatus.domain ? 'text-green-500' : 'text-red-500'}`}>
+                              {shopifyStatus.domain || 'Not Set'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Admin Token</span>
+                            <span className={`text-[10px] font-bold ${shopifyStatus.hasAdminToken ? 'text-green-500' : 'text-red-500'}`}>
+                              {shopifyStatus.hasAdminToken ? `Configured (${shopifyStatus.adminTokenPrefix}...)` : 'Missing'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Storefront Token</span>
+                            <span className={`text-[10px] font-bold ${shopifyStatus.hasStorefrontToken ? 'text-green-500' : 'text-red-500'}`}>
+                              {shopifyStatus.hasStorefrontToken ? `Configured (${shopifyStatus.storefrontTokenPrefix}...)` : 'Missing'}
+                            </span>
+                          </div>
+                          
+                          {!shopifyStatus.hasStorefrontToken && (
+                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                              <p className="text-[8px] text-red-400 font-bold uppercase tracking-widest leading-relaxed">
+                                Action Required: Set SHOPIFY_STOREFRONT_ACCESS_TOKEN in Settings.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-white/40 italic text-center py-4">Checking Shopify status...</p>
+                      )}
                     </div>
                   </div>
 
