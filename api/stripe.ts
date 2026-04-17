@@ -6,7 +6,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export const config = {
   api: {
-    bodyParser: false, // needed for webhook
+    bodyParser: false,
   },
 };
 
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     }
 
     // =====================================================
-    // 🎟️ 2. PROMO CODE
+    // 🎟️ 2. PROMO CODE (TRIAL)
     // =====================================================
     if (action === "redeem-promo") {
       if (req.method !== "POST") {
@@ -52,10 +52,6 @@ export default async function handler(req, res) {
       }
 
       const { promoCode, userId } = req.body;
-
-      if (!promoCode || !userId) {
-        return res.status(400).json({ error: "promoCode & userId required" });
-      }
 
       const userRef = db.collection("users").doc(userId);
       const userDoc = await userRef.get();
@@ -81,17 +77,42 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Invalid promo code" });
       }
 
+      // 🔥 TRIAL
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+
       await userRef.update({
         credits: (userData?.credits || 0) + credits,
         promoUsed: true,
+        tier: "creator",
+        isTrial: true,
+        trialEndsAt: trialEndsAt.toISOString(),
         updatedAt: new Date().toISOString(),
       });
 
-      return res.json({ success: true, creditsAdded: credits });
+      // 🧾 LOG
+      await db.collection("orders").add({
+        userId,
+        type: "Promo Trial",
+        status: "Paid",
+        amount: 0,
+        metadata: {
+          promoCode,
+          credits,
+          trialEndsAt: trialEndsAt.toISOString(),
+        },
+        createdAt: new Date().toISOString(),
+      });
+
+      return res.json({
+        success: true,
+        creditsAdded: credits,
+        trialEndsAt: trialEndsAt.toISOString(),
+      });
     }
 
     // =====================================================
-    // 🔥 3. STRIPE WEBHOOK
+    // 🔥 3. STRIPE WEBHOOK (PAID USERS)
     // =====================================================
     if (action === "webhook") {
       let event;
@@ -106,7 +127,7 @@ export default async function handler(req, res) {
           process.env.STRIPE_WEBHOOK_SECRET!
         );
       } catch (err: any) {
-        console.error("❌ Signature error:", err.message);
+        console.error("Signature error:", err.message);
         return res.status(200).json({ received: true });
       }
 
@@ -114,16 +135,10 @@ export default async function handler(req, res) {
         const pi = event.data.object;
         const { userId, type, value, tierId } = pi.metadata || {};
 
-        if (!userId) {
-          return res.status(200).json({ received: true });
-        }
-
         const userRef = db.collection("users").doc(userId);
         const userSnap = await userRef.get();
 
-        if (!userSnap.exists) {
-          return res.status(200).json({ received: true });
-        }
+        if (!userSnap.exists) return res.status(200).json({ received: true });
 
         const user = userSnap.data();
 
@@ -131,20 +146,24 @@ export default async function handler(req, res) {
           updatedAt: new Date().toISOString(),
         };
 
-        if (type === "credits") {
-          updates.credits = (user.credits || 0) + parseInt(value || "0");
+        if (type === "tier") {
+          updates.tier = tierId || "creator";
+          updates.credits = (user.credits || 0) + 20;
+
+          // 🔥 IMPORTANT (paid users)
+          updates.isTrial = false;
+          updates.trialEndsAt = null;
         }
 
-        if (type === "tier") {
-          updates.tier = tierId || "pro";
-          updates.credits = (user.credits || 0) + 20;
+        if (type === "credits") {
+          updates.credits = (user.credits || 0) + parseInt(value || "0");
         }
 
         await userRef.update(updates);
 
         await db.collection("orders").add({
           userId,
-          type: type === "credits" ? "Credit Top-up" : "Plan Upgrade",
+          type: "Stripe Payment",
           status: "Paid",
           amount: pi.amount / 100,
           stripePaymentIntentId: pi.id,
@@ -155,11 +174,10 @@ export default async function handler(req, res) {
       return res.status(200).json({ received: true });
     }
 
-    // =====================================================
     return res.status(404).json({ error: "Invalid action" });
 
   } catch (err: any) {
-    console.error("❌ API error:", err);
+    console.error("API error:", err);
     return res.status(500).json({ error: err.message });
   }
 }
