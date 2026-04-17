@@ -48,9 +48,7 @@ service cloud.firestore {
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
          (request.auth.token.email in [
            'adilabbas812@gmail.com',
-           'aimanmaniyar20@gmail.com',
-           'adilabbas@gmail.com',
-           'opulmkt@gmail.com'
+           'aimanmaniyar20@gmail.com'
          ] && request.auth.token.email_verified == true));
     }
 
