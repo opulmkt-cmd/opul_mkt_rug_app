@@ -1,12 +1,35 @@
 import { analyzeComplexity, generateRugImage } from "../lib/gemini";
 import { db } from "../lib/firebaseAdmin";
 
+// 🔥 ADD THIS HELPER
+async function handleTrialExpiry(userRef, userData) {
+  if (!userData?.isTrial || !userData?.trialEndsAt) return userData;
+
+  const now = new Date();
+  const trialEnd = new Date(userData.trialEndsAt);
+
+  if (now > trialEnd && userData.tier === "creator") {
+    const updated = {
+      tier: "free",
+      credits: 5,
+      isTrial: false,
+      trialEndsAt: null,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await userRef.update(updated);
+    return { ...userData, ...updated };
+  }
+
+  return userData;
+}
+
 export default async function handler(req, res) {
   const { action } = req.query;
 
   try {
     // =====================================================
-    // 🧠 1. ANALYZE PROMPT
+    // 🧠 ANALYZE
     // =====================================================
     if (action === "analyze") {
       if (req.method !== "POST") {
@@ -24,7 +47,7 @@ export default async function handler(req, res) {
     }
 
     // =====================================================
-    // 🎨 2. GENERATE IMAGE (WITH CREDITS)
+    // 🎨 GENERATE IMAGE
     // =====================================================
     if (action === "generate-image") {
       if (req.method !== "POST") {
@@ -44,9 +67,12 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      const user = userSnap.data();
+      let user = userSnap.data();
 
-      // ✅ Admin emails (no credit deduction)
+      // 🔥 ADD THIS LINE (CRITICAL)
+      user = await handleTrialExpiry(userRef, user);
+
+      // ✅ Admin emails
       const adminEmails = [
         "aimanaimlengineer@gmail.com",
         "adilabbas812@gmail.com",
@@ -63,7 +89,6 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: "No credits left" });
         }
 
-        // deduct credit BEFORE generation
         await userRef.update({
           credits: user.credits - 1,
           updatedAt: new Date().toISOString(),
@@ -85,7 +110,6 @@ export default async function handler(req, res) {
       return res.json({ image });
     }
 
-    // =====================================================
     return res.status(404).json({ error: "Invalid action" });
 
   } catch (err: any) {
