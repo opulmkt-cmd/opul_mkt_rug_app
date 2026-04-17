@@ -169,3 +169,32 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     </FirebaseContext.Provider>
   );
 }
+import React from "react";
+
+export class ErrorBoundary extends React.Component<any, any> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("🔥 ErrorBoundary caught:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 20, textAlign: "center" }}>
+          <h2>Something went wrong</h2>
+          <p>Please refresh the page</p>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
