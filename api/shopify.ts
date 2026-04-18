@@ -7,7 +7,7 @@ export default async function handler(req, res) {
 
   try {
     // =====================================================
-    // 🛒 CREATE CUSTOM PRODUCT (RUG)
+    // 🛒 CREATE CUSTOM PRODUCT
     // =====================================================
     if (action === "create-custom-checkout") {
       const { title, price, imageUrl } = req.body;
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
         product: {
           title,
           status: "active",
-          variants: [{ price }],
+          variants: [{ price: String(price) }],
           images: imageUrl ? [{ src: imageUrl }] : [],
         },
       };
@@ -35,8 +35,20 @@ export default async function handler(req, res) {
 
       const result = await response.json();
 
+      console.log("🔥 Shopify response:", JSON.stringify(result, null, 2));
+
+      if (!response.ok || result.errors) {
+        return res.status(500).json({
+          error: "Shopify API failed",
+          details: result.errors || result,
+        });
+      }
+
       if (!result?.product?.variants?.length) {
-        throw new Error("Failed to create Shopify product");
+        return res.status(500).json({
+          error: "Product created but no variants returned",
+          raw: result,
+        });
       }
 
       const variantId = `gid://shopify/ProductVariant/${result.product.variants[0].id}`;
