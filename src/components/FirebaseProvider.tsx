@@ -77,8 +77,6 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
               const userDoc = await getDoc(userRef);
 
               if (!userDoc.exists()) {
-                const guestCreditsStr = localStorage.getItem('guest_credits');
-                const guestCredits = guestCreditsStr ? parseInt(guestCreditsStr) : 20;
 
                 const isAdmin = ADMIN_EMAILS.includes(currentUser.email || '');
                 const isDemo = DEMO_EMAILS.includes(currentUser.email || '');
